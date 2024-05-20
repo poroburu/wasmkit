@@ -1,6 +1,5 @@
 import { CosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import chalk from "chalk";
-import { SecretNetworkClient } from "secretjs";
 
 import { task } from "../internal/core/config/config-env";
 import { WasmkitError } from "../internal/core/errors";
@@ -24,18 +23,7 @@ async function nodeInfo (
   const chain = getChainFromAccount(env.network);
 
   switch (chain) {
-    case ChainType.Secret: {
-      const tendermintClient = (client as SecretNetworkClient).query.tendermint;
-      const blockInfo = await tendermintClient.getLatestBlock({});
-      console.log(`[${chalk.gray("wasmkit")}] ${chalk.green("INF")}`, "Block height:", chalk.green(blockInfo));
-      // console.log("ChainId:", await tendermintClient.getChainId()); // TODO: replace this
-
-      const nodeInfo = await tendermintClient.getNodeInfo({})
-        // eslint-disable-next-line
-        .catch((err: any) => { throw new Error(`Could not fetch node info: ${err}`); });
-      console.log(`[${chalk.gray("wasmkit")}] ${chalk.green("INF")}`, "Node Info:", chalk.green(nodeInfo));
-      break;
-    }
+    case ChainType.Secret:
     case ChainType.Juno:
     case ChainType.Osmosis:
     case ChainType.Archway:
@@ -44,8 +32,8 @@ async function nodeInfo (
     case ChainType.Umee:
     case ChainType.Nibiru:
     case ChainType.Terra: {
-      console.log(`[${chalk.gray("wasmkit")}] ${chalk.green("INF")}`, "ChainId:", chalk.green(await (client as CosmWasmClient).getChainId()));
-      console.log(`[${chalk.gray("wasmkit")}] ${chalk.green("INF")}`, "Block height:", chalk.green(await (client as CosmWasmClient).getHeight()));
+      console.log(`[${chalk.gray("wasmkit")}] ${chalk.green("INF")}`, "ChainId:", chalk.green(await (client).getChainId()));
+      console.log(`[${chalk.gray("wasmkit")}] ${chalk.green("INF")}`, "Block height:", chalk.green(await (client).getHeight()));
       break;
     }
     // case ChainType.Injective: {

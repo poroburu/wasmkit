@@ -1,7 +1,4 @@
-import { ArchwayClient } from "@archwayhq/arch3.js/build";
 import { CosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-// import { Account as WasmAccount, SecretNetworkClient } from "secretjs";
-import { SecretNetworkClient } from "secretjs";
 
 import { WasmkitContext } from "../internal/context";
 import { WasmkitError } from "../internal/core/errors";
@@ -11,7 +8,7 @@ import { getBalance, getClient } from "./client";
 
 export class UserAccountI implements UserAccount {
   account: Account;
-  client?: SecretNetworkClient | CosmWasmClient | ArchwayClient;
+  client?: CosmWasmClient;
 
   constructor (account: Account) {
     this.account = account;

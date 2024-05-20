@@ -12,4 +12,4 @@
 + To start secret network in your system use
   `make start-server`
 
-  This will start a local SecretNetwork full-node.
+  This will start a local full-node.
