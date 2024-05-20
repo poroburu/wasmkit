@@ -1,4 +1,3 @@
-import { ArchwayClient, SigningArchwayClient } from '@archwayhq/arch3.js';
 import { CosmWasmClient, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { DirectSecp256k1HdWallet, makeCosmoshubPath } from "@cosmjs/proto-signing";
 import chalk from "chalk";
@@ -12,7 +11,7 @@ import { defaultFees } from "./constants";
 
 export async function getClient (
   network: Network
-): Promise<SecretNetworkClient | CosmWasmClient | ArchwayClient> {
+): Promise<SecretNetworkClient | CosmWasmClient> {
   const chain = getChainFromAccount(network);
   switch (chain) {
     case ChainType.Secret: {
@@ -27,11 +26,9 @@ export async function getClient (
     case ChainType.Atom:
     case ChainType.Umee:
     case ChainType.Nibiru:
+    case ChainType.Archway:
     case ChainType.Neutron: {
       return await CosmWasmClient.connect(network.config.endpoint);
-    }
-    case ChainType.Archway: {
-      return await ArchwayClient.connect(network.config.endpoint);
     }
     // case ChainType.Injective: {
 
@@ -48,7 +45,7 @@ export async function getClient (
 export async function getSigningClient (
   network: Network,
   account: Account
-): Promise<SecretNetworkClient | SigningCosmWasmClient | SigningArchwayClient> {
+): Promise<SecretNetworkClient | SigningCosmWasmClient> {
   const chain = getChainFromAccount(network);
   switch (chain) {
     case ChainType.Secret: {
@@ -138,12 +135,6 @@ export async function getSigningClient (
         network.config.endpoint,
         wallet
       );
-      // TODO: there is issue with cosmjs-types in this version,
-      // Types of property 'accountNumber' are incompatible.
-      // Type 'Long' is not assignable to type 'bigint'.
-      // return await SigningArchwayClient.connectWithSigner(network.config.endpoint, wallet, {
-      //   prefix: 'archway'
-      // });
     }
     // case ChainType.Injective: {
 
@@ -187,7 +178,7 @@ export function getChainFromAccount (network: Network): ChainType {
 
 export async function storeCode (
   network: Network,
-  signingClient: SecretNetworkClient | SigningCosmWasmClient | SigningArchwayClient,
+  signingClient: SecretNetworkClient | SigningCosmWasmClient,
   sender: string,
   contractName: string,
   wasmFileContent: Buffer,
@@ -260,7 +251,7 @@ export async function storeCode (
 
 export async function instantiateContract (
   network: Network,
-  signingClient: SecretNetworkClient | SigningCosmWasmClient | SigningArchwayClient,
+  signingClient: SecretNetworkClient | SigningCosmWasmClient,
   codeId: number,
   sender: string,
   contractName: string,
@@ -344,7 +335,7 @@ export async function instantiateContract (
 }
 export async function executeTransaction (
   network: Network,
-  signingClient: SecretNetworkClient | SigningCosmWasmClient | SigningArchwayClient,
+  signingClient: SecretNetworkClient | SigningCosmWasmClient,
   sender: string,
   contractAddress: string,
   contractCodeHash: string,
@@ -408,7 +399,7 @@ export async function executeTransaction (
 }
 
 export async function sendQuery (
-  client: SecretNetworkClient | CosmWasmClient | ArchwayClient,
+  client: SecretNetworkClient | CosmWasmClient,
   network: Network,
   msgData: Record<string, unknown>,
   contractAddress: string,
@@ -446,7 +437,7 @@ export async function sendQuery (
 }
 
 export async function getBalance (
-  client: SecretNetworkClient | CosmWasmClient | ArchwayClient,
+  client: SecretNetworkClient | CosmWasmClient,
   accountAddress: string,
   network: Network
 ): Promise<Coin[]> {
