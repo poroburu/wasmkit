@@ -2,7 +2,6 @@ import { CosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import chalk from "chalk";
 import fs from "fs-extra";
 import path from "path";
-import { SecretNetworkClient } from "secretjs";
 
 import { WasmkitContext } from "../../internal/context";
 import { WasmkitError } from "../../internal/core/errors";
@@ -36,7 +35,7 @@ export class Contract {
   private readonly env: WasmkitRuntimeEnvironment =
   WasmkitContext.getWasmkitContext().getRuntimeEnv();
 
-  private client?: SecretNetworkClient | CosmWasmClient;
+  private client?: CosmWasmClient;
 
   public codeId: number;
   public contractCodeHash: string;

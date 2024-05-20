@@ -1,7 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { DirectSecp256k1HdWallet, makeCosmoshubPath } from "@cosmjs/proto-signing";
 import chalk from "chalk";
-import { SecretNetworkClient, Wallet } from "secretjs";
 import { Coin } from "secretjs/dist/protobuf/cosmos/base/v1beta1/coin";
 
 import { WasmkitError } from "../internal/core/errors";
@@ -11,15 +10,10 @@ import { defaultFees } from "./constants";
 
 export async function getClient (
   network: Network
-): Promise<SecretNetworkClient | CosmWasmClient> {
+): Promise<CosmWasmClient> {
   const chain = getChainFromAccount(network);
   switch (chain) {
-    case ChainType.Secret: {
-      return new SecretNetworkClient({
-        chainId: network.config.chainId,
-        url: network.config.endpoint
-      });
-    }
+    case ChainType.Secret:
     case ChainType.Juno:
     case ChainType.Osmosis:
     case ChainType.Terra:
@@ -45,18 +39,10 @@ export async function getClient (
 export async function getSigningClient (
   network: Network,
   account: Account
-): Promise<SecretNetworkClient | SigningCosmWasmClient> {
+): Promise<SigningCosmWasmClient> {
   const chain = getChainFromAccount(network);
   switch (chain) {
-    case ChainType.Secret: {
-      const wall = new Wallet(account.mnemonic);
-      return new SecretNetworkClient({
-        url: network.config.endpoint,
-        chainId: network.config.chainId,
-        wallet: wall,
-        walletAddress: account.address
-      });
-    }
+    case ChainType.Secret:
     case ChainType.Juno: {
       const wallet = await DirectSecp256k1HdWallet.fromMnemonic(account.mnemonic, {
         hdPaths: [makeCosmoshubPath(0)],
@@ -178,7 +164,7 @@ export function getChainFromAccount (network: Network): ChainType {
 
 export async function storeCode (
   network: Network,
-  signingClient: SecretNetworkClient | SigningCosmWasmClient,
+  signingClient: SigningCosmWasmClient,
   sender: string,
   contractName: string,
   wasmFileContent: Buffer,
@@ -188,43 +174,7 @@ export async function storeCode (
 ): Promise<{codeId: number, contractCodeHash: {code_hash: string}}> {
   const networkName = getChainFromAccount(network);
   switch (networkName) {
-    case ChainType.Secret: {
-      const inGasLimit = parseInt(customFees?.gas as string);
-      const inGasPrice =
-        parseFloat(customFees?.amount[0].amount as string) /
-        parseFloat(customFees?.gas as string);
-      signingClient = signingClient as SecretNetworkClient;
-      const uploadReceipt = await signingClient.tx.compute.storeCode(
-        {
-          sender: sender,
-          wasm_byte_code: wasmFileContent,
-          source: source ?? "",
-          builder: builder ?? ""
-        },
-        {
-          gasLimit: Number.isNaN(inGasLimit) ? undefined : inGasLimit,
-          gasPriceInFeeDenom: Number.isNaN(inGasPrice) ? undefined : inGasPrice
-        }
-      );
-      // console.log(uploadReceipt, "sds");
-      const res = uploadReceipt?.arrayLog?.find(
-        // eslint-disable-next-line  @typescript-eslint/no-explicit-any
-        (log: any) => log.type === "message" && log.key === "code_id"
-      );
-      if (res === undefined) {
-        throw new WasmkitError(ERRORS.GENERAL.STORE_RESPONSE_NOT_RECEIVED, {
-          jsonLog: JSON.stringify(uploadReceipt, null, 2),
-          contractName: contractName
-        });
-      }
-      const codeId = Number(res.value);
-      const contractCodeHash = await signingClient.query.compute.codeHashByCodeId({
-        code_id: codeId.toString()
-      });
-      const parsedContractCodeHash: {code_hash: string} =
-        { code_hash: (contractCodeHash.code_hash === undefined) ? "" : contractCodeHash.code_hash };
-      return { contractCodeHash: parsedContractCodeHash, codeId: codeId };
-    }
+    case ChainType.Secret:
     case ChainType.Juno:
     case ChainType.Osmosis:
     case ChainType.Archway:
@@ -233,7 +183,7 @@ export async function storeCode (
     case ChainType.Umee:
     case ChainType.Nibiru:
     case ChainType.Terra: {
-      const uploadReceipt = await (signingClient as SigningCosmWasmClient).upload(
+      const uploadReceipt = await (signingClient).upload(
         sender,
         wasmFileContent,
         customFees ?? network.config.fees?.upload ?? defaultFees.upload,
@@ -251,7 +201,7 @@ export async function storeCode (
 
 export async function instantiateContract (
   network: Network,
-  signingClient: SecretNetworkClient | SigningCosmWasmClient,
+  signingClient: SigningCosmWasmClient,
   codeId: number,
   sender: string,
   contractName: string,
@@ -264,45 +214,7 @@ export async function instantiateContract (
 ): Promise<string> {
   const chain = getChainFromAccount(network);
   switch (chain) {
-    case ChainType.Secret: {
-      if (contractCodeHash === "mock_hash") {
-        throw new WasmkitError(ERRORS.GENERAL.CONTRACT_NOT_DEPLOYED, {
-          param: contractName
-        });
-      }
-      const inGasLimit = parseInt(customFees?.gas as string);
-      const inGasPrice =
-        parseFloat(customFees?.amount[0].amount as string) /
-        parseFloat(customFees?.gas as string);
-
-      const tx = await (signingClient as SecretNetworkClient).tx.compute.instantiateContract(
-        {
-          code_id: codeId,
-          sender: sender,
-          code_hash: contractCodeHash,
-          init_msg: initArgs,
-          label: label,
-          init_funds: transferAmount
-        },
-        {
-          gasLimit: Number.isNaN(inGasLimit) ? undefined : inGasLimit,
-          gasPriceInFeeDenom: Number.isNaN(inGasPrice) ? undefined : inGasPrice
-        }
-      );
-
-      // Find the contract_address in the logs
-      const res = tx?.arrayLog?.find(
-        // eslint-disable-next-line  @typescript-eslint/no-explicit-any
-        (log: any) => log.type === "message" && log.key === "contract_address"
-      );
-      if (res === undefined) {
-        throw new WasmkitError(ERRORS.GENERAL.INIT_RESPONSE_NOT_RECEIVED, {
-          jsonLog: JSON.stringify(tx, null, 2),
-          contractName: contractName
-        });
-      }
-      return res.value;
-    }
+    case ChainType.Secret:
     case ChainType.Juno:
     case ChainType.Neutron:
     case ChainType.Atom:
@@ -311,7 +223,7 @@ export async function instantiateContract (
     case ChainType.Umee:
     case ChainType.Nibiru:
     case ChainType.Terra: {
-      const contract = await (signingClient as SigningCosmWasmClient).instantiate(
+      const contract = await (signingClient).instantiate(
         sender,
         codeId,
         initArgs,
@@ -335,7 +247,7 @@ export async function instantiateContract (
 }
 export async function executeTransaction (
   network: Network,
-  signingClient: SecretNetworkClient | SigningCosmWasmClient,
+  signingClient: SigningCosmWasmClient,
   sender: string,
   contractAddress: string,
   contractCodeHash: string,
@@ -347,27 +259,7 @@ export async function executeTransaction (
   const chain = getChainFromAccount(network);
 
   switch (chain) {
-    case ChainType.Secret: {
-      const inGasLimit = parseInt(customFees?.gas as string);
-      const inGasPrice =
-        parseFloat(customFees?.amount[0].amount as string) /
-        parseFloat(customFees?.gas as string);
-      // eslint-disable-next-line
-      return await (signingClient as SecretNetworkClient).tx.compute.executeContract(
-        {
-          sender: sender,
-          contract_address: contractAddress,
-          code_hash: contractCodeHash,
-          msg: msgData,
-          sent_funds: transferAmount as Coin[] | undefined
-        },
-        {
-          gasLimit: Number.isNaN(inGasLimit) ? undefined : inGasLimit,
-          gasPriceInFeeDenom: Number.isNaN(inGasPrice) ? undefined : inGasPrice,
-          memo: memo
-        }
-      );
-    }
+    case ChainType.Secret:
     case ChainType.Juno:
     case ChainType.Neutron:
     case ChainType.Atom:
@@ -399,7 +291,7 @@ export async function executeTransaction (
 }
 
 export async function sendQuery (
-  client: SecretNetworkClient | CosmWasmClient,
+  client: CosmWasmClient,
   network: Network,
   msgData: Record<string, unknown>,
   contractAddress: string,
@@ -408,13 +300,7 @@ export async function sendQuery (
   const chain = getChainFromAccount(network);
 
   switch (chain) {
-    case ChainType.Secret: {
-      return await (client as SecretNetworkClient).query.compute.queryContract({
-        contract_address: contractAddress,
-        query: msgData,
-        code_hash: contractHash
-      });
-    }
+    case ChainType.Secret:
     case ChainType.Juno:
     case ChainType.Neutron:
     case ChainType.Atom:
@@ -437,7 +323,7 @@ export async function sendQuery (
 }
 
 export async function getBalance (
-  client: SecretNetworkClient | CosmWasmClient,
+  client: CosmWasmClient,
   accountAddress: string,
   network: Network
 ): Promise<Coin[]> {
@@ -487,21 +373,7 @@ export async function getBalance (
   }
 
   switch (chain) {
-    case ChainType.Secret: {
-      const info = await (client as SecretNetworkClient).query.bank.balance({
-        address: accountAddress,
-        denom: balanceDenom
-      });
-      if (info === undefined) {
-        throw new WasmkitError(ERRORS.GENERAL.BALANCE_UNDEFINED);
-      }
-
-      const infoBalance = info.balance ?? { amount: "0", denom: balanceDenom };
-      const normalisedBalance: Coin = (infoBalance.amount === undefined ||
-        infoBalance.denom === undefined) ? { amount: "0", denom: balanceDenom }
-        : { amount: infoBalance.amount, denom: infoBalance.denom };
-      return [normalisedBalance];
-    }
+    case ChainType.Secret:
     case ChainType.Juno:
     case ChainType.Archway:
     case ChainType.Neutron:
@@ -510,7 +382,7 @@ export async function getBalance (
     case ChainType.Nibiru:
     case ChainType.Osmosis:
     case ChainType.Terra: {
-      const info = await (client as CosmWasmClient)?.getBalance(accountAddress, balanceDenom);
+      const info = await (client)?.getBalance(accountAddress, balanceDenom);
       if (info === undefined) {
         throw new WasmkitError(ERRORS.GENERAL.BALANCE_UNDEFINED);
       }
