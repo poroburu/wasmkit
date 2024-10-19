@@ -10,7 +10,7 @@ It facilitates features such as initiating project repo from contract templates,
 
 ## Support
 
-Join [WasmKit's discord chat](https://discord.gg/kXu8FBkw) for support, feedback, and general chatter.
+Join [WasmKit's discord chat](https://discord.gg/vhYgNxy47y) for support, feedback, and general chatter.
 
 ## Features
 
